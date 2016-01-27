@@ -1,38 +1,117 @@
-module Bodec where
+module Bodec (..) where
+import Graphics.Element exposing (show)
 
-import Char
-import String
+import Char exposing (fromCode, toCode)
+import String exposing (fromChar, uncons)
+import Native.Utf8
 
-type alias ByteList = List Int
+type Bytes = Bytes (List Int)
+type Raw = Raw String
 
-codeToString = Char.fromCode >> String.fromChar
+{-| Uses native bindings to implement this.
+The JS version is `window.unescape(encodeURIComponent(str))`
 
-listToRaw: ByteList -> String
-listToRaw = List.map codeToString >> String.concat
+    encodeUtf8 "░:░" --> Raw "\xe2\x96\x91\x3a\xe2\x96\x91"
+-}
+encodeUtf8: String -> Raw
+encodeUtf8 str = Raw (Native.Utf8.encode str)
 
-decodeHex: String -> String
-decodeHex = hexToList >> listToRaw
+{-| Uses native bindings to implement this.
+The JS version is `decodeURIComponent(window.escape(raw))`
 
-hexToList:  String -> ByteList
-hexToList hex = hexToList' [] hex
+    decodeUtf8 (Raw "\xe2\x96\x91\x3a\xe2\x96\x91") --> "░:░"
+-}
+decodeUtf8: Raw -> String
+decodeUtf8 (Raw str) = Native.Utf8.decode str
 
--- Given a hexadecimal character return the integer value.
--- Invalid characters are treated as 0's
-hexCodeToInt: Int -> Int
-hexCodeToInt c =
-  if c >= 0x30 && c < 0x40 then c - 0x30
-  else if c > 0x60 && c <= 0x66 then c - 0x57
-  else if c > 0x40 && c <= 0x46 then c - 0x37
-  else 0
+{-| Convert byte list to raw encoded string.
 
-hexToInt: Char -> Int
-hexToInt = Char.toCode >> hexCodeToInt
+    toRaw (Bytes [72, 101, 108, 108, 111]) --> Raw "Hello"
+-}
+toRaw: Bytes -> Raw
+toRaw (Bytes list) = Raw (toRaw' list)
+toRaw' list = case list of
+  [] -> ""
+  head :: tail -> (head |> fromCode |> fromChar) ++ (toRaw' tail)
 
--- Internal recursive hexToList
--- Consumes two chars at a time parsing as hex and accumulating list.
-hexToList':  ByteList -> String -> ByteList
-hexToList' accum hex = case String.uncons hex of
-  Nothing -> List.reverse accum
-  Just (c, r) -> case String.uncons r of
-      Nothing -> [] -- Invalid length, return empty list
-      Just (c', r') -> hexToList' (hexToInt c * 16 + hexToInt c' :: accum) r'
+{-| Convert from raw encoded string to byte list.
+
+    fromRaw (Raw "Hello") --> Bytes [72, 101, 108, 108, 111]
+-}
+fromRaw: Raw -> Bytes
+fromRaw (Raw str) = Bytes (fromRaw' str)
+fromRaw' str = case uncons str of
+  Nothing -> []
+  Just (head, tail) -> (head |> toCode) :: (fromRaw' tail)
+
+{-| Convert from unicode string to UTF-8 encoded byte list
+
+    toUnicode (Bytes [226, 150, 145, 58, 226, 150, 145]) --> "░:░"
+-}
+toUnicode: Bytes -> String
+toUnicode = toRaw >> decodeUtf8
+
+{-| Convert from UTF-8 encoded byte list to unicode string
+
+    fromUnicode "░:░" --> Bytes [226, 150, 145, 58, 226, 150, 145]
+-}
+fromUnicode: String -> Bytes
+fromUnicode = encodeUtf8 >> fromRaw
+
+main = show
+  -- (fromRaw (Raw "Hello")) --> Bytes [72, 101, 108, 108, 111]
+  -- (toRaw (Bytes [72, 101, 108, 108, 111])) --> Raw "Hello"
+  -- (decodeUtf8 (Raw "\xe2\x96\x91\x3a\xe2\x96\x91")) --> "░:░"
+  -- (encodeUtf8 "░:░") --> Raw "\xe2\x96\x91\x3a\xe2\x96\x91"
+  -- (fromUnicode "░:░") --> Bytes [226, 150, 145, 58, 226, 150, 145]
+  (toUnicode (Bytes [226, 150, 145, 58, 226, 150, 145])) --> "░:░"
+
+--
+-- encodeHex:
+-- {-| Convert between a byte list and a raw encoded string
+--     raw = bytesToRaw
+-- -}
+-- bytesToRaw : Bytes -> Raw
+-- bytesToRaw = Raw (
+--     List.map (fromCode >> fromChar) >> String.concat)
+--
+-- decodeHex : String -> Raw
+-- decodeHex =
+--     hexToList >> listToRaw
+--
+--
+--
+-- -- Given a hexadecimal character return the integer value.
+-- -- Invalid characters are treated as 0's
+--
+--
+-- hexCodeToInt : Int -> Int
+-- hexCodeToInt c =
+--     if c >= 48 && c < 64 then
+--         c - 48
+--     else if c > 96 && c <= 102 then
+--         c - 87
+--     else if c > 64 && c <= 70 then
+--         c - 55
+--     else
+--         0
+--
+--
+-- hexToInt : Char -> Int
+-- hexToInt =
+--     Char.toCode >> hexCodeToInt
+--
+--
+-- hexToList : String -> ByteList
+-- hexToList hex =
+--     case String.uncons hex of
+--         Nothing ->
+--             []
+--
+--         Just ( c, r ) ->
+--             case String.uncons r of
+--                 Nothing ->
+--                     []
+--
+--                 Just ( c', r' ) ->
+--                     (hexToInt c * 16 + hexToInt c') :: (hexToList r')
