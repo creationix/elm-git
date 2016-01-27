@@ -42,14 +42,14 @@ tim = {
   name= "Tim",
   email= "tim@creationix.com",
   date= {
-    seconds= 100,
-    offset= 0}}
+    seconds= 1453874664,
+    offset= -6*60}}
 
 commit = {
     parents= [],
-    tree= "asd",
+    tree= "9bd2ca396909383054d9e7e7e3ded6c9858d5c9c",
     author= tim,
     committer= tim,
-    message= "test"}
+    message= "Initial commit\n"}
 
 main = show (Commit commit)
