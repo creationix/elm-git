@@ -32,11 +32,45 @@ type GitObject
         seconds: Int,
         offset: Int}},
     message: String}
-  | Tree List {
+  | Tree (List{
     name: String,
     mode: GitMode,
-    hash: String}
+    hash: String})
   | Blob (String)
+
+-- TODO: strip out illegal characters
+safe name = name
+
+
+two num =
+  if num < 10 then
+    "0" ++ (asText num)
+  else
+    (asText num)
+
+encodeDate date =
+  let (neg, offset) =
+    if date.offset < 0 then
+      ("+", -date.offset)
+    else
+      ("-", date.offset)
+  in date.seconds ++ " " ++ neg ++
+    (two (offset // 60)) ++ (two (offset % 60))
+
+encodePerson person =
+  (safe person.name) ++ " <" ++ (safe person.email) ++ "> " ++ (encodeDate person.date)
+
+
+encode obj =
+    case obj of
+      Commit commit ->
+        "Commit"
+      Tag tag ->
+        "Tag"
+      Tree tree ->
+        "Tree"
+      Blob blob ->
+        "Blob"
 
 tim = {
   name= "Tim",
@@ -52,4 +86,5 @@ commit = {
     committer= tim,
     message= "Initial commit\n"}
 
-main = show (Commit commit)
+main = let date = commit.author.date
+ in show (Commit commit)
